@@ -41,7 +41,7 @@ fi
 if ! grep -q ${DB_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${DB_BACKUP}"
-	echo '0 1 * * * /root/scripts/${DB_BACKUP} 2>&1 | logger -it DB_BACKUP' >> /var/spool/cron/root
+	echo "0 1 * * * /root/scripts/${DB_BACKUP} 2>&1 | logger -it DB_BACKUP" >> /var/spool/cron/root
 	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${DB_BACKUP} already exists. Skipping..."
@@ -50,7 +50,7 @@ fi
 if ! grep -q ${DEL_DB_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${DEL_DB_BACKUP}"
-	echo '0 0 * *	* /root/scripts/${DEL_DB_BACKUP} --delete 2>&1 | logger -it DEL_DB_BACKUP' >> /var/spool/cron/root
+	echo "0 0 * *	* /root/scripts/${DEL_DB_BACKUP} --delete 2>&1 | logger -it DEL_DB_BACKUP" >> /var/spool/cron/root
 	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${DEL_DB_BACKUP} already exists. Skipping..."
@@ -60,7 +60,7 @@ fi
 if ! grep -q ${HT_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${HT_BACKUP}"
-	echo '0 2 * * * /root/scripts/${HT_BACKUP} 2>&1 | logger -it HT_BACKUP' >> /var/spool/cron/root
+	echo "0 2 * * * /root/scripts/${HT_BACKUP} 2>&1 | logger -it HT_BACKUP" >> /var/spool/cron/root
 	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${HT_BACKUP} already exists. Skipping..."
