@@ -1,0 +1,21 @@
+#!/bin/bash
+
+## This script will dump MySQL database and compress them using GZIP format. 
+
+## Author: Seff Parker
+## Version: 20190315
+
+BACKUP_DIR="/backup/mysql/`date +%a`" # Sun to Mon (Daily in a week)
+#BACKUP_DIR="/backup/mysql/`date +%d`" # 01 to 31 (Daily in a month)
+#BACKUP_DIR="/backup/mysql/`date +%H`" # 00 to 23 (Hourly in a day)
+
+mkdir -p $BACKUP_DIR
+echo "INFO: Dumping MySQL databases to $BACKUP_DIR"
+
+for DB in `echo 'show databases;' | mysql | grep -wvE 'Database|test|information_schema|performance_schema|eximstats|sys'`;
+	do echo "INFO: Dumping database $DB"
+	mysqldump --opt $DB | gzip -9 | cat > $BACKUP_DIR/$DB.sql.gz;
+done
+
+DUMP_SIZE=$(du -sh $BACKUP_DIR | cut -f1)
+echo "INFO: Database backup completed. ($DUMP_SIZE)"

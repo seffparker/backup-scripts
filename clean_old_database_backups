@@ -1,0 +1,35 @@
+#!/bin/bash
+ 
+## This script is to scan & delete older database backups where the original database doesn't exists under MySQL
+## Use the option --delete to perform actual deletion
+ 
+## Author: Seff Parker
+## Version: 20190201
+ 
+SCAN_AGE=30
+SCAN_DIR=/backup/mysql/
+EXT=".sql.gz"
+ 
+# Finding Database backups matching the given criteria
+echo "INFO: Scanning MySQL backup directory..."
+DB_LIST_FULLPATH=$(find $SCAN_DIR -name "*$EXT" -mtime +${SCAN_AGE})
+DB_LIST_NAMEONLY=$(echo "$DB_LIST_FULLPATH" | xargs -l -I {} basename {} $EXT 2> /dev/null | sort | uniq )
+ 
+ 
+if [ -z "$DB_LIST_NAMEONLY" ]
+	then echo -e "NOTICE: No \"$EXT\" backups found under $SCAN_DIR older than $SCAN_AGE days!"
+else 
+	for DB in `echo "$DB_LIST_NAMEONLY"`
+	do if [ ! -d /var/lib/mysql/$DB ]
+		then echo -n "WARNING: The MySQL database doesn't exists: $DB"
+		COUNT=$(echo "$DB_LIST_FULLPATH" | grep -c ${DB}${EXT})
+		if [ "$1" == "--delete" ]
+			then echo "$DB_LIST_FULLPATH" | grep ${DB}${EXT} | xargs rm -f &> /dev/null
+			echo -e "\e[0;31m (Deleted $COUNT backups)\e[0m"
+		else
+			echo -e "\e[0;32m (Found $COUNT backups)\e[0m"
+		fi
+	fi
+	done
+	echo "INFO: Processing completed!"
+fi
