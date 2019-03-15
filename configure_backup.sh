@@ -66,7 +66,7 @@ else
 	echo "NOTICE: Cron for ${HT_BACKUP} already exists. Skipping..."
 fi
 
-if $CRON_MOD
+if [ $CRON_MOD ]
 	then
 	echo "INFO: Restarting crond service..."
 	service crond restart
