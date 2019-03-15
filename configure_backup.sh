@@ -28,13 +28,21 @@ chmod +x /root/scripts/${DEL_DB_BACKUP} /root/scripts/${DB_BACKUP} /root/scripts
 echo "INFO: Setting up logrotate..."
 echo "/var/log/backup.log" > /etc/logrotate.d/backup
 
-echo "INFO: Setting syslogd handler..."
-echo ':programname, contains, "BACKUP" /var/log/backup.log' > /etc/rsyslog.d/backup.conf
+if ! grep -q BACKUP /etc/rsyslog.d/backup.conf
+	then
+	echo "INFO: Setting syslog handler..."
+	echo ':programname, contains, "BACKUP" /var/log/backup.log' > /etc/rsyslog.d/backup.conf
+	echo "INFO: Restarting rsyslogd service..."
+	service rsyslog restart
+else
+	echo "NOTICE: syslog handler already exists. Skipping..."
+fi
 
 if ! grep -q ${DB_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${DB_BACKUP}"
 	echo '0 1 * * * /root/scripts/${DB_BACKUP} 2>&1 | logger -it DB_BACKUP' >> /var/spool/cron/root
+	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${DB_BACKUP} already exists. Skipping..."
 fi
@@ -43,6 +51,7 @@ if ! grep -q ${DEL_DB_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${DEL_DB_BACKUP}"
 	echo '0 0 * *	* /root/scripts/${DEL_DB_BACKUP} --delete 2>&1 | logger -it DEL_DB_BACKUP' >> /var/spool/cron/root
+	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${DEL_DB_BACKUP} already exists. Skipping..."
 fi
@@ -52,6 +61,13 @@ if ! grep -q ${HT_BACKUP} /var/spool/cron/root
 	then
 	echo "INFO: Configuring cron for ${HT_BACKUP}"
 	echo '0 2 * * * /root/scripts/${HT_BACKUP} 2>&1 | logger -it HT_BACKUP' >> /var/spool/cron/root
+	CRON_MOD=true
 else
 	echo "NOTICE: Cron for ${HT_BACKUP} already exists. Skipping..."
+fi
+
+if $CRON_MOD
+	then
+	echo "INFO: Restarting crond service..."
+	service crond restart
 fi
