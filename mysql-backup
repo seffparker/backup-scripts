@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# Dump MySQL Database and optionally sync to remote destiantions
+#
+# Author: Seff Parker
+# Version: 20200809
+
+source /etc/mysql-backup.conf
+
+mkdir -p $LOCAL_BACKUP_PATH
+echo "INFO: Initiating database dump to $LOCAL_BACKUP_PATH"
+if [[ -z "$1" ]]
+	then DB_LIST=$(echo 'show databases;' | mysql | grep -wvE "${DB_EXCLUDE_LIST}")
+else
+	DB_LIST="$*"
+fi
+for DB in ${DB_LIST}
+	do echo -n "INFO: Dumping database $DB "
+	mysqldump ${DUMP_OPT} $DB 2> $DUMP_ERROR | gzip -9 > ${LOCAL_BACKUP_PATH}/$DB.sql.gz
+	if [[ $PIPESTATUS == 0 ]]
+		then
+		DB_DONE+=(${DB})
+		echo "[DONE]"
+	else
+		ERR_MSG=$(cat $DUMP_ERROR)
+		DB_FAIL+=("${DB}: ${ERR_MSG}")
+		:> $DUMP_ERROR
+		echo "[FAIL]"
+			echo "WARNING: ${DB}: ${ERR_MSG}"
+	fi
+done
+DB_DONE_COUNT=${#DB_DONE[*]}
+DB_FAIL_COUNT=${#DB_FAIL[*]}
+	DUMP_SIZE=$(du -sh $LOCAL_BACKUP_PATH | cut -f1)
+if [[ ${DB_FAIL_COUNT} == 0 ]]
+	then echo "INFO: Total $DB_DONE_COUNT databases backed up ($DUMP_SIZE)"
+else
+	echo "WARNING: Total $DB_DONE_COUNT databases backed up. $DB_FAIL_COUNT failed."
+	echo "Following ${DB_FAIL_COUNT} database(s) failed to dump:"
+	IFS=$'\n'
+	echo "${DB_FAIL[*]}"
+fi
+
+if  [[ -f ${NFS_BACKUP_TEST} ]] 
+	then
+	echo "INFO: Syncing dumps to NFS $NFS_BACKUP_ROOT" 	
+	rsync -truv --delete ${LOCAL_BACKUP_PATH} ${NFS_BACKUP_ROOT}/
+	echo "INFO: Sync to NFS completed"
+else
+	echo "NOTICE: NFS Destination is not configured" >&2
+fi
+
+if [[ -z $SSH_USER || -z $SSH_HOST || -z $SSH_PORT ]]
+	then echo "NOTICE: SSH Destination is not configured" >&2
+else
+	echo "INFO: Syncing dumps to ${SSH_HOST}"
+	rsync -av -e "ssh -p ${SSH_PORT}" ${LOCAL_BACKUP_ROOT}/ ${SSH_USER}@${SSH_HOST}:${SSH_ROOT}
+	echo "INFO: Sync to ${SSH_HOST} completed"
+fi
+
+if [[ -z ${AWS_ACCESS_KEY_ID} || -z ${AWS_SECRET_ACCESS_KEY} || -z ${S3_BUCKET_NAME} ]]
+	then
+	echo "NOTICE: AWS S3 Destination is not configured" >&2
+else
+	echo "INFO: Syncing dumps to S3 bucket ${S3_BUCKET_NAME}"
+	s3cmd sync ${LOCAL_BACKUP_ROOT} s3://${S3_BUCKET_NAME}
+	echo "INFO: Sync to S3 bucket ${S3_BUCKET_NAME} completed"
+fi
+
+echo "INFO: Scanning for orphaned backups..."
+DB_LIST_FULLPATH=$(find ${LOCAL_BACKUP_ROOT} -name "*$EXT" -mtime +${SCAN_AGE_DAYS})
+DB_LIST_NAMEONLY=$(echo "$DB_LIST_FULLPATH" | xargs -l -I {} basename {} $EXT 2> /dev/null | sort | uniq )
+
+if [ -z "${DB_LIST_NAMEONLY}" ]
+	then echo -e "NOTICE: No \"$EXT\" backups found under ${LOCAL_BACKUP_ROOT} older than $SCAN_AGE_DAYS days!"
+else 
+	for DB_NAME in ${DB_LIST_NAMEONLY}
+	do if ! echo "${DB_LIST_CURRENT}" | grep -wq ${DB_NAME}
+		then echo -n "WARNING: MySQL database doesn't exists: ${DB_NAME}"
+		COUNT=$(echo "${DB_LIST_FULLPATH}" | grep -c ${DB_NAME}${EXT})
+		if [ "${CLEAN_DB_DUMP}" == "true" ]
+			then echo "$DB_LIST_FULLPATH" | grep ${DB_NAME}${EXT} | xargs rm -f &> /dev/null
+			echo " (Deleted $COUNT orphaned backups)"
+		else
+			echo " (Found $COUNT orphaned backups)"
+		fi
+	fi
+	done
+	echo "INFO: Cleaning completed!"
+fi
