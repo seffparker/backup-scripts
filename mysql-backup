@@ -7,6 +7,7 @@
 
 source /etc/mysql-backup.conf
 
+## Dump to local path
 mkdir -p $LOCAL_BACKUP_PATH
 echo "INFO: Initiating database dump to $LOCAL_BACKUP_PATH"
 if [[ -z "$1" ]]
@@ -16,7 +17,7 @@ else
 fi
 for DB in ${DB_LIST}
 	do echo -n "INFO: Dumping database $DB "
-	mysqldump ${DUMP_OPT} $DB 2> $DUMP_ERROR | gzip -9 > ${LOCAL_BACKUP_PATH}/$DB.sql.gz
+	mysqldump -u ${MYSQL_USER} ${DUMP_OPT} $DB 2> $DUMP_ERROR | gzip -9 > ${LOCAL_BACKUP_PATH}/$DB.sql.gz
 	if [[ $PIPESTATUS == 0 ]]
 		then
 		DB_DONE+=(${DB})
@@ -26,12 +27,13 @@ for DB in ${DB_LIST}
 		DB_FAIL+=("${DB}: ${ERR_MSG}")
 		:> $DUMP_ERROR
 		echo "[FAIL]"
-			echo "WARNING: ${DB}: ${ERR_MSG}"
+		echo "WARNING: ${DB}: ${ERR_MSG}"
 	fi
 done
 DB_DONE_COUNT=${#DB_DONE[*]}
 DB_FAIL_COUNT=${#DB_FAIL[*]}
-	DUMP_SIZE=$(du -sh $LOCAL_BACKUP_PATH | cut -f1)
+DUMP_SIZE=$(du -sh $LOCAL_BACKUP_PATH | cut -f1)
+
 if [[ ${DB_FAIL_COUNT} == 0 ]]
 	then echo "INFO: Total $DB_DONE_COUNT databases backed up ($DUMP_SIZE)"
 else
@@ -41,6 +43,7 @@ else
 	echo "${DB_FAIL[*]}"
 fi
 
+## Sync to NFS
 if  [[ -f ${NFS_MOUNT_CHECK} ]] 
 	then
 	echo "INFO: Syncing dumps to NFS $NFS_BACKUP_ROOT" 	
@@ -50,6 +53,7 @@ else
 	echo "NOTICE: NFS Destination is not configured" >&2
 fi
 
+## Sync over SSH
 if [[ -z $SSH_USER || -z $SSH_HOST || -z $SSH_PORT ]]
 	then echo "NOTICE: SSH Destination is not configured" >&2
 else
@@ -58,6 +62,7 @@ else
 	echo "INFO: Sync to ${SSH_HOST} completed"
 fi
 
+## Sync to AWS S3
 if [[ -z ${AWS_ACCESS_KEY_ID} || -z ${AWS_SECRET_ACCESS_KEY} || -z ${S3_BUCKET_NAME} ]]
 	then
 	echo "NOTICE: AWS S3 Destination is not configured" >&2
@@ -68,6 +73,7 @@ else
 	echo "INFO: Sync to S3 bucket ${S3_BUCKET_NAME} completed"
 fi
 
+## Clean orphaned backups
 echo "INFO: Scanning for orphaned backups..."
 DB_LIST_FULLPATH=$(find ${LOCAL_BACKUP_ROOT} -name "*$EXT" -mtime +${SCAN_AGE_DAYS})
 DB_LIST_NAMEONLY=$(echo "$DB_LIST_FULLPATH" | xargs -l -I {} basename {} $EXT 2> /dev/null | sort | uniq )
