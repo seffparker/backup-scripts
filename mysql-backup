@@ -64,7 +64,7 @@ if [[ -z ${AWS_ACCESS_KEY_ID} || -z ${AWS_SECRET_ACCESS_KEY} || -z ${S3_BUCKET_N
 else
 	echo "INFO: Syncing dumps to S3 bucket ${S3_BUCKET_NAME}"
 	export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-	s3cmd sync ${LOCAL_BACKUP_ROOT} s3://${S3_BUCKET_NAME}
+	s3cmd sync --delete-removed ${LOCAL_BACKUP_ROOT} s3://${S3_BUCKET_NAME}
 	echo "INFO: Sync to S3 bucket ${S3_BUCKET_NAME} completed"
 fi
 
