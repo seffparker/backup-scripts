@@ -41,7 +41,7 @@ else
 	echo "${DB_FAIL[*]}"
 fi
 
-if  [[ -f ${NFS_BACKUP_TEST} ]] 
+if  [[ -f ${NFS_MOUNT_CHECK} ]] 
 	then
 	echo "INFO: Syncing dumps to NFS $NFS_BACKUP_ROOT" 	
 	rsync -truv --delete ${LOCAL_BACKUP_PATH} ${NFS_BACKUP_ROOT}/
