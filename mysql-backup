@@ -58,7 +58,8 @@ if [[ -z $SSH_USER || -z $SSH_HOST || -z $SSH_PORT ]]
 	then echo "NOTICE: SSH Destination is not configured" >&2
 else
 	echo "INFO: Syncing dumps to ${SSH_HOST}"
-	rsync -av -e "ssh -p ${SSH_PORT}" ${LOCAL_BACKUP_ROOT}/ ${SSH_USER}@${SSH_HOST}:${SSH_ROOT}
+	ssh -p ${SSH_PORT} ${SSH_USER}@${SSH_HOST} mkdir -p ${SSH_ROOT}
+	rsync -av --delete -e "ssh -p ${SSH_PORT}" ${LOCAL_BACKUP_ROOT} ${SSH_USER}@${SSH_HOST}:${SSH_ROOT}
 	echo "INFO: Sync to ${SSH_HOST} completed"
 fi
 
