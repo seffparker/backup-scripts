@@ -23,9 +23,8 @@ Specify the Database user in the configuration:
 MYSQL_USER="db_user1"
 ```
 
-Create a password file in the user's home directory:
+Create a password file in the user's home directory `/home/system_user1/.my.cnf`:
 ```
-/home/system_user1/.my.cnf
 [client]
 user=db_user1
 password="db_user1_password"
