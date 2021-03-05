@@ -39,9 +39,9 @@ The backup retention can be controlled by the variable BACKUP_FREQUENCY. The fre
 
 You can also write advanced patterns. For example, if we need to take four backups daily in 6 hour interval, and keep it there for 7 days, we can set as follows:
 ```
-BACKUP_FREQUENCY="$(date +%a)/$(date +%H)"
+BACKUP_FREQUENCY="$(date +%a/%H)"
 ```
-This will store backup in directory structure like below, and start overwriting after a week.
+This can store backup in directory structure like below, and start overwriting after a week.
 ```
 Sun/00/
 Sun/06/
