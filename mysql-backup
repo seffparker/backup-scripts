@@ -3,7 +3,7 @@
 # Dump MySQL Database and optionally sync to remote destiantions
 #
 # Author: Seff Parker
-# Version: 20200809
+# Version: v1.0.1 20210306
 
 source /etc/mysql-backup.conf
 
@@ -43,6 +43,30 @@ else
 	echo "${DB_FAIL[*]}"
 fi
 
+## Clean orphaned backups
+echo "INFO: Scanning for orphaned backups..."
+DB_LIST_FULLPATH=$(find ${LOCAL_BACKUP_ROOT} -name "*$EXT" -mtime +${SCAN_AGE_DAYS})
+DB_LIST_NAMEONLY=$(echo "$DB_LIST_FULLPATH" | xargs -l -I {} basename {} $EXT 2> /dev/null | sort | uniq )
+
+if [ -z "${DB_LIST_NAMEONLY}" ]
+	then echo -e "NOTICE: No \"$EXT\" backups found under ${LOCAL_BACKUP_ROOT} older than $SCAN_AGE_DAYS days!"
+else 
+	DB_LIST_ALL=${DB_LIST}
+	for DB_NAME in ${DB_LIST_NAMEONLY}
+	do if ! echo "${DB_LIST_ALL}" | grep -wq ${DB_NAME}
+		then echo -n "WARNING: MySQL database doesn't exists: ${DB_NAME}"
+		COUNT=$(echo "${DB_LIST_FULLPATH}" | grep -c ${DB_NAME}${EXT})
+		if [ "${CLEAN_DB_DUMP}" == "true" ]
+			then echo "$DB_LIST_FULLPATH" | grep ${DB_NAME}${EXT} | xargs rm -f &> /dev/null
+			echo " (Deleted $COUNT orphaned backups)"
+		else
+			echo " (Found $COUNT orphaned backups)"
+		fi
+	fi
+	done
+	echo "INFO: Cleaning completed!"
+fi
+
 ## Sync to NFS
 if  [[ -f ${NFS_MOUNT_CHECK} ]] 
 	then
@@ -74,25 +98,3 @@ else
 	echo "INFO: Sync to S3 bucket ${S3_BUCKET_NAME} completed"
 fi
 
-## Clean orphaned backups
-echo "INFO: Scanning for orphaned backups..."
-DB_LIST_FULLPATH=$(find ${LOCAL_BACKUP_ROOT} -name "*$EXT" -mtime +${SCAN_AGE_DAYS})
-DB_LIST_NAMEONLY=$(echo "$DB_LIST_FULLPATH" | xargs -l -I {} basename {} $EXT 2> /dev/null | sort | uniq )
-
-if [ -z "${DB_LIST_NAMEONLY}" ]
-	then echo -e "NOTICE: No \"$EXT\" backups found under ${LOCAL_BACKUP_ROOT} older than $SCAN_AGE_DAYS days!"
-else 
-	for DB_NAME in ${DB_LIST_NAMEONLY}
-	do if ! echo "${DB_LIST_CURRENT}" | grep -wq ${DB_NAME}
-		then echo -n "WARNING: MySQL database doesn't exists: ${DB_NAME}"
-		COUNT=$(echo "${DB_LIST_FULLPATH}" | grep -c ${DB_NAME}${EXT})
-		if [ "${CLEAN_DB_DUMP}" == "true" ]
-			then echo "$DB_LIST_FULLPATH" | grep ${DB_NAME}${EXT} | xargs rm -f &> /dev/null
-			echo " (Deleted $COUNT orphaned backups)"
-		else
-			echo " (Found $COUNT orphaned backups)"
-		fi
-	fi
-	done
-	echo "INFO: Cleaning completed!"
-fi
